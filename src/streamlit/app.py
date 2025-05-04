@@ -21,11 +21,11 @@ st.set_page_config(layout="wide")
 WEBHOOK_URL = "http://localhost:5678/webhook/llm_agent"  # Replace with your actual webhook URL
 API_TOKEN = "n8n_llm_auth"  # Replace with your actual token
 
-'''For Object Detection'''
+# For Object Detection
 HERE = Path(__file__).parent
 ROOT = HERE.parent
-MODEL_LOCAL_PATH = ROOT / "./models/MobileNetSSD_deploy.caffemodel"
-PROTOTXT_LOCAL_PATH = ROOT / "./models/MobileNetSSD_deploy.prototxt.txt"
+MODEL_LOCAL_PATH = ROOT / "../models/MobileNetSSD_deploy.caffemodel"
+PROTOTXT_LOCAL_PATH = ROOT / "../models/MobileNetSSD_deploy.prototxt.txt"
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/objs_db')
 
 CLASSES = [
@@ -100,7 +100,7 @@ COLORS = generate_label_colors()
 
 @st.cache_resource
 def load_mongodb():
-    return pymongo.MongoClient(MONGO_URL)
+    return pymongo.MongoClient(MONGO_URI)
 mongo_client = load_mongodb()
 
 
@@ -216,7 +216,7 @@ with col2:
         
         # Send message to n8n webhook
         headers = {
-            "Authorization": f"Bearer {API_TOKEN}",
+            "Authorization": f"{API_TOKEN}",
             "Content-Type": "application/json"
         }
         
