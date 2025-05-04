@@ -40,7 +40,7 @@ Next, setup N8N
 ![n8n_dashboard](/assets/images/n8n_dashboard.png)
 - Edit the Webhook component to create a new credential for _Credential for Header Auth_. Set "Name" to **Authorization** and "Value" to **n8n_llm_auth** (must follow API_KEY in src/streamlit/app.py.
 ![header_auth_credentials](/assets/images/header_auth_credentials.png)
-- Enter OpenAI API key in _OpenAI Chat Model_ component. 
+- Enter OpenAI API key in by "Creating New Credential" under _OpenAI Chat Model_>_Credential to connect with_. 
 ![openai_credentials](/assets/images/openai_credentials.png)
 
 Then, in a PowerShell with admin priviledges:
