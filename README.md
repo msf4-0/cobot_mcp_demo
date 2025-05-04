@@ -16,9 +16,13 @@ Make sure Docker Desktop is installed and running.
 ```
 
 ### Setup Streamlit Virtual Environment
-Install uv (https://docs.astral.sh/uv/getting-started/installation/).
+Install uv (https://docs.astral.sh/uv/getting-started/installation/). Then, in a PowerShell with admin priviledges:
 ```bash
 uv venv streamlit --python 3.10
+# Enable uv venv activation:
+Set-ExecutionPolicy RemoteSigned
+# Activate venv:
+.\streamlit\Scripts\activate
 uv pip install streamlit, SpeechRecognition, PyAudio, streamlit_webrtc, opencv-python, pyttsx3, pymongo
 ```
 ## Running UI
@@ -36,10 +40,6 @@ Next, setup N8N
 
 Then, in a PowerShell with admin priviledges:
 ```bash
-# Enable uv venv activation:
-Set-ExecutionPolicy RemoteSigned
-# Activate venv:
-Scripts/activate
-# Run streamlit UI:
+# Activate streamlit venv and run streamlit UI:
 streamlit run src/streamlit/app.py
 ```
