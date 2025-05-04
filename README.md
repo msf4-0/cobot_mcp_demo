@@ -37,11 +37,11 @@ Next, setup N8N
 - Open http://localhost:5678. 
 - Create an N8N account and login. 
 - Start a new template and import the file n8n/N8N_MCP_OPENAI.json. You should see the following:
-![n8n_dashboard](https://github.com/ReubenLimMonash/cobot_mcp_demo/tree/main/assets/images/n8n_dashboard.png)
+![n8n_dashboard](/assets/images/n8n_dashboard.png)
 - Edit the Webhook component to create a new credential for _Credential for Header Auth_. Set "Name" to **Authorization** and "Value" to **n8n_llm_auth** (must follow API_KEY in src/streamlit/app.py.
-![n8n_dashboard](https://github.com/ReubenLimMonash/cobot_mcp_demo/tree/main/assets/images/header_auth_credentials.png)
+![header_auth_credentials](/assets/images/header_auth_credentials.png)
 - Enter OpenAI API key in _OpenAI Chat Model_ component. 
-![n8n_dashboard](https://github.com/ReubenLimMonash/cobot_mcp_demo/tree/main/assets/images/openai_credentials.png)
+![openai_credentials](/assets/images/openai_credentials.png)
 
 Then, in a PowerShell with admin priviledges:
 ```bash
