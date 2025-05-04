@@ -3,9 +3,6 @@
 
 This project uses N8N AI Agent Tool and MCP Server to allow an LLM to control a cobot arm.
 
-
-
-
 ## Installation and Setup
 
 ### Build servers using Docker Compose
@@ -16,14 +13,14 @@ Make sure Docker Desktop is installed and running.
 ```
 
 ### Setup Streamlit Virtual Environment
-Install uv (https://docs.astral.sh/uv/getting-started/installation/). Then, in a PowerShell with admin priviledges:
+Install uv (https://docs.astral.sh/uv/getting-started/installation/). Then, in a PowerShell with admin privileges:
 ```bash
 uv venv streamlit --python 3.10
 # Enable uv venv activation:
 Set-ExecutionPolicy RemoteSigned
 # Activate venv:
 .\streamlit\Scripts\activate
-uv pip install streamlit, SpeechRecognition, PyAudio, streamlit_webrtc, opencv-python, pyttsx3, pymongo
+uv pip install -r .\src\streamlit\requirements.txt
 ```
 ## Running UI
 Make sure cobot is turned on and connected to system. **Important: Change the cobot IP address in docker-compose.yaml.**
