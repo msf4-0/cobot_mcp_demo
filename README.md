@@ -9,7 +9,7 @@ This project uses N8N AI Agent Tool and MCP Server to allow an LLM to control a 
 ## Installation and Setup
 
 ### Build servers using Docker Compose
-The following will build the image for N8N, MCP server, and MongoDB server.
+The following will build the image for the MCP server.
 Make sure Docker Desktop is installed and running.
 ```bash
   docker-compose build
@@ -26,7 +26,7 @@ Set-ExecutionPolicy RemoteSigned
 uv pip install streamlit, SpeechRecognition, PyAudio, streamlit_webrtc, opencv-python, pyttsx3, pymongo
 ```
 ## Running UI
-Make sure cobot is turned on and connected to system.
+Make sure cobot is turned on and connected to system. **Important: Change the cobot IP address in docker-compose.yaml.**
 
 First, start the servers:
 ```
