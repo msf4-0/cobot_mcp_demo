@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+
+  n8n:
+    image: n8nio/n8n:1.90.1
+    ports:
+      - "5678:5678"
+    networks:
+      - app-network
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_USER_MANAGEMENT_DISABLED=true
+      # - N8N_BASIC_AUTH_USER=admin
+      # - N8N_BASIC_AUTH_PASSWORD=admin
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: src/mcp/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/objs_db
+      - XARMAPI_IP=192.168.0.153
+
+  mongo:
+    image: mongodb/mongodb-community-server:5.0.22-ubuntu2004
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  mongo_data:

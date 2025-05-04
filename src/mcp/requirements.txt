@@ -1,0 +1,3 @@
+mcp[cli]
+xarm-python-sdk
+pymongo

@@ -1,0 +1,10 @@
+streamlit
+streamlit_webrtc
+PyAudio
+requests
+pandas
+numpy
+pymongo
+pyttsx3
+SpeechRecognition
+opencv-python
