@@ -113,6 +113,10 @@ class RobotMain(object):
         else:
             return False
 
+    def get_cobot_position(self):
+        code, pos = self._arm.get_position(is_radian=False)
+        return (pos[0], pos[1], pos[2]) if code == 0 else (0.0, 0.0, 0.0)
+
     # Move in a square
     def move_square(self):
         try:
@@ -146,10 +150,19 @@ class RobotMain(object):
     # Move in a circle
     def move_circle(self):
         try:
-            self._arm.move_gohome()
-            code = self._arm.set_servo_angle(angle=[360.0, 0.0, 0.0, 0.0, 0.0, 0.0], speed=self._angle_speed, mvacc=self._angle_acc, wait=True, radius=360.0)
-            if not self._check_code(code, 'set_servo_angle'):
-                return
+            # self._arm.move_gohome()
+            ''' Code below just spins the cobot around '''
+            # code = self._arm.set_servo_angle(angle=[360.0, 0.0, 0.0, 0.0, 0.0, 0.0], speed=self._angle_speed, mvacc=self._angle_acc, wait=True, radius=360.0)
+            # if not self._check_code(code, 'set_servo_angle'):
+            #     return
+            ''' Code below moves the cobot to a new position and draws a small circle '''
+            code = self._arm.set_position(*[200.0, 0.0, 200.0, 180.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, radius=0.0, wait=False)
+            # if not self._check_code(code, 'set_position'):
+            #     return
+            code = self._arm.move_circle([250.0, 50.0, 200.0, 180.0, 0.0, 0.0], [250.0, -50.0, 200.0, 180.0, 0.0, 0.0], float(360) / 360 * 100, speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            # if not self._check_code(code, 'move_circle'):
+            #     return
+            # self._arm.move_gohome()
         except Exception as e:
             self.pprint('MainException: {}'.format(e))
         self.alive = False
@@ -162,7 +175,8 @@ class RobotMain(object):
     def move_to_scan(self):
         try:
             self._arm.move_gohome()
-            code = self._arm.set_tool_position(*[150.0, 0.0, -200.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            # code = self._arm.set_tool_position(*[245.7, 27.5, 313, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_tool_position(*[200.0, 0.0, -313.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
         except Exception as e:
@@ -172,6 +186,64 @@ class RobotMain(object):
         self._arm.release_state_changed_callback(self._state_changed_callback)
         if hasattr(self._arm, 'release_count_changed_callback'):
             self._arm.release_count_changed_callback(self._count_changed_callback)
+
+    # Move tool position by relative x, y, z coords
+    def move_by_xyz(self, x, y, z):
+        try:
+            code = self._arm.set_tool_position(*[x, y, z, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            if not self._check_code(code, 'set_position'):
+                return
+        except Exception as e:
+            self.pprint('MainException: {}'.format(e))
+        self.alive = False
+        self._arm.release_error_warn_changed_callback(self._error_warn_changed_callback)
+        self._arm.release_state_changed_callback(self._state_changed_callback)
+        if hasattr(self._arm, 'release_count_changed_callback'):
+            self._arm.release_count_changed_callback(self._count_changed_callback)
+
+    def pickup_n_place(self, x, y, z, min_z=10, step_size=20, check_interval=0.1):
+        """Slowly moves the cobot down while suction cup on to pickup object. 
+        Then places object in specified coord.
+        x, y, z: The coordinate to place the object
+        min_z: Minimum height to maintain, cobot can't go below this
+        step_size: Step size to go down (mm)
+        check_interval: Time between steps (s)
+        """
+        init_x, init_y, init_z = self.get_cobot_position()
+        print(f"Init position: {init_x}, {init_y}, {init_z}")
+        try:
+            # 1. Move forward to compensate for camera offset
+            code = self._arm.set_tool_position(*[10, 0, 0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            # 2. Move down in small steps while checking suction
+            z_moved = 0
+            reached_obj = 0
+            code = self._arm.set_suction_cup(True, wait=True, delay_sec=0)  # Turn suction ON before moving
+            while z_moved < (init_z - min_z - step_size): # Don't move more than current z
+                code = self._arm.set_tool_position(*[0, 0, step_size, 0.0, 0.0, 0.0], speed=25, mvacc=self._tcp_acc, wait=True)
+                time.sleep(check_interval)
+                code, suction_status = self._arm.get_tgpio_digital()  # Digital input from suction cup
+                if code == 0 and suction_status[0] == 1:  # Detected object sucked
+                    reached_obj = 1
+                    self.pprint("[SUCTION] Object detected by vacuum. Stopping downward motion.")
+                    break
+                z_moved += step_size
+            if reached_obj != 1:
+                self.pprint('Failed to reach object. Returning to initial position')
+                code = self._arm.set_position(x=init_x, y=init_y, z=init_z, roll=180, pitch=0, yaw=0, speed=100, wait=True)
+                return
+            # 3. Close gripper to grab object
+            code = self._arm.set_suction_cup(True, wait=True, delay_sec=0)
+            time.sleep(1)
+            # 4. Go to drop location
+            code = self._arm.set_position(x=x, y=y, z=z, roll=180, pitch=0, yaw=0, speed=25, wait=True)
+            time.sleep(0.5)
+            # 5. Release object
+            code = self._arm.set_suction_cup(False, wait=True, delay_sec=0)
+            time.sleep(1)
+            # 6. Return to initial position
+            code = self._arm.set_position(x=init_x, y=init_y, z=init_z, roll=180, pitch=0, yaw=0, speed=100, wait=True)
+        except Exception as e:
+            self.pprint('MainException: {}'.format(e))
 
     # Move to scan position
     def return_home(self):

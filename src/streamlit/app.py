@@ -12,45 +12,24 @@ import numpy as np
 import pyttsx3
 from typing import List, NamedTuple
 import pymongo
-import os 
+from ultralytics import YOLO
+import torch
 
 # Page configuration
 st.set_page_config(layout="wide")
+
+torch.classes.__path__ = [] # add this line to manually set it to empty.
 
 # N8N webhook configuration
 WEBHOOK_URL = "http://localhost:5678/webhook/llm_agent"  # Replace with your actual webhook URL
 API_TOKEN = "n8n_llm_auth"  # Replace with your actual token
 
-# For Object Detection
 HERE = Path(__file__).parent
 ROOT = HERE.parent
-MODEL_LOCAL_PATH = ROOT / "../models/MobileNetSSD_deploy.caffemodel"
-PROTOTXT_LOCAL_PATH = ROOT / "../models/MobileNetSSD_deploy.prototxt.txt"
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/objs_db')
-
-CLASSES = [
-    "background",
-    "aeroplane",
-    "bicycle",
-    "bird",
-    "boat",
-    "bottle",
-    "bus",
-    "car",
-    "cat",
-    "chair",
-    "cow",
-    "diningtable",
-    "dog",
-    "horse",
-    "motorbike",
-    "person",
-    "pottedplant",
-    "sheep",
-    "sofa",
-    "train",
-    "tvmonitor",
-]
+MODEL_LOCAL_PATH = ROOT / "./models/yolov8n.pt"
+MONGO_URL = "mongodb://localhost:27017/"
+MM_PER_PIXEL_X = 0.4 # Based on original_position = (245.7, 27.5, 313)
+MM_PER_PIXEL_Y = 0.4 # Based on original_position = (245.7, 27.5, 313)
 
 class Detection(NamedTuple):
     class_id: int
@@ -71,8 +50,8 @@ if "video_running" not in st.session_state:
 if "rtsp_url" not in st.session_state:
     st.session_state.rtsp_url = ""
 
-if "frame" not in st.session_state:
-    st.session_state.frame = None
+# if "frame_counter" not in st.session_state:
+#     st.session_state.frame_counter = 0
 
 def tts_run(text): 
     # engine = st.session_state.tts_engine
@@ -93,86 +72,89 @@ def tts_run(text):
 
 st.session_state.loop_running = False
 
-@st.cache_resource  # type: ignore
-def generate_label_colors():
-    return np.random.uniform(0, 255, size=(len(CLASSES), 3))
-COLORS = generate_label_colors()
+# @st.cache_resource  # type: ignore
+# def generate_label_colors():
+#     return np.random.uniform(0, 255, size=(len(CLASSES), 3))
+# COLORS = generate_label_colors()
 
 @st.cache_resource
 def load_mongodb():
-    return pymongo.MongoClient(MONGO_URI)
+    return pymongo.MongoClient(MONGO_URL)
 mongo_client = load_mongodb()
 
 
 # Session-specific caching
-cache_key = "object_detection_dnn"
+cache_key = "object_detection_yolo"
 if cache_key in st.session_state:
-    net = st.session_state[cache_key]
+    yolo = st.session_state[cache_key]
 else:
-    net = cv2.dnn.readNetFromCaffe(str(PROTOTXT_LOCAL_PATH), str(MODEL_LOCAL_PATH))
-    st.session_state[cache_key] = net
+    yolo = YOLO(str(MODEL_LOCAL_PATH))
+    st.session_state[cache_key] = yolo
 
 score_threshold = 0.5
+frame_counter = 0
 
-# NOTE: The callback will be called in another thread,
-#       so use a queue here for thread-safety to pass the data
-#       from inside to outside the callback.
-# TODO: A general-purpose shared state object may be more useful.
-# result_queue: "queue.Queue[List[Detection]]" = queue.Queue()
+def pixel_to_mm_offset(x_pixel, y_pixel):
+    offset_x_mm = -x_pixel * MM_PER_PIXEL_X  # right positive
+    offset_y_mm = -y_pixel * MM_PER_PIXEL_Y  # top positive
+    return offset_x_mm, offset_y_mm
+
+def getColours(cls_num):
+    base_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    color_index = cls_num % len(base_colors)
+    increments = [(1, -2, 1), (-2, 1, -1), (1, -1, 2)]
+    return tuple((base_colors[color_index][i] + increments[color_index][i] *
+                  (cls_num // len(base_colors))) % 256 for i in range(3))
 
 def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-    image = frame.to_ndarray(format="bgr24")
-
-    # Run inference
-    blob = cv2.dnn.blobFromImage(
-        image=cv2.resize(image, (300, 300)),
-        scalefactor=0.007843,
-        size=(300, 300),
-        mean=(127.5, 127.5, 127.5),
-    )
-    net.setInput(blob)
-    output = net.forward()
-
-    h, w = image.shape[:2]
-
-    # Convert the output array into a structured form.
-    output = output.squeeze()  # (1, 1, N, 7) -> (N, 7)
-    output = output[output[:, 2] >= score_threshold]
-    detections = [
-        Detection(
-            class_id=int(detection[1]),
-            label=CLASSES[int(detection[1])],
-            score=float(detection[2]),
-            box=(detection[3:7] * np.array([w, h, w, h])),
-        )
-        for detection in output
-    ]
-
-    # Clear database so that new latest results can be added
-    objs_db = mongo_client["object_detection"]
+    global frame_counter
+    cleared_db = 0 # Flag to indicate whether database has been cleared for this round
+    frame = frame.to_ndarray(format="bgr24")
+    
+    # Get database client
+    objs_db = mongo_client["objs_db"]
     latest_obj = objs_db["latest_detected_obj"] # To store the current obj detection results
     
-
-    # Render bounding boxes and captions
-    if len(detections)>0:
+    # Clear database if no objects detected in last 5 frames
+    frame_counter += 1
+    if frame_counter == 5:
         latest_obj.delete_many({})
-        for detection in detections:
-            caption = f"{detection.label}: {round(detection.score * 100, 2)}%"
-            color = COLORS[detection.class_id]
-            xmin, ymin, xmax, ymax = detection.box.astype("int")
-            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, 2)
-            cv2.putText(
-                image,
-                caption,
-                (xmin, ymin - 15 if ymin - 15 > 15 else ymin + 15),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                color,
-                2,
-            )
-            latest_obj.insert_one({"label": str(detection.label), "x": (xmin+xmax)/2, "y_min": (ymin+ymax)/2})
+        
+    frame_height, frame_width = frame.shape[:2]
+    image_center_x = frame_width // 2
+    image_center_y = frame_height // 2
 
-    return av.VideoFrame.from_ndarray(image, format="bgr24")
+    results = yolo.predict(frame, save=False, verbose=False)
+    for result in results:
+        for box in result.boxes:
+            if box.conf[0] > score_threshold:
+                # There's a detection, so clear database if not already cleared
+                if cleared_db == 0:
+                    frame_counter = 0
+                    latest_obj.delete_many({})
+                    cleared_db = 1
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                x_center = int((x1 + x2) / 2)
+                y_center = int((y1 + y2) / 2)
+                cls = int(box.cls[0])
+                class_name = result.names[cls]
+                colour = getColours(cls)
+
+                cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
+                cv2.circle(frame, (x_center, y_center), 5, colour, -1)
+
+                offset_x_pixel = (x_center - image_center_x)  # right positive
+                offset_y_pixel = (y_center - image_center_y)  # down positive
+                offset_x_mm, offset_y_mm = pixel_to_mm_offset(offset_x_pixel, offset_y_pixel)
+
+                label = f'{class_name} {box.conf[0]:.2f}|X:{offset_x_mm:.1f}mm Y:{offset_y_mm:.1f}mm'
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 2)
+                cv2.line(frame, (image_center_x, image_center_y), (x_center, y_center), (255, 255, 0), 2)
+                
+                # Update database 
+                latest_obj.insert_one({"label": str(class_name), "offset_x_mm": offset_x_mm, "offset_y_mm": offset_y_mm})
+    
+    return av.VideoFrame.from_ndarray(frame, format="bgr24")
 
 # Create two columns for layout
 col1, col2 = st.columns(2)
@@ -188,21 +170,8 @@ with col1:
                 media_stream_constraints={"video": True, "audio": False},
                 async_processing=True,
             )
-    
-    score_threshold = st.slider("Score threshold", 0.0, 1.0, 0.5, 0.05)
-    
-    # if st.checkbox("Show the detected labels", value=True):
-    #     if webrtc_ctx.state.playing:
-    #         labels_placeholder = st.empty()
-    #         # NOTE: The video transformation with object detection and
-    #         # this loop displaying the result labels are running
-    #         # in different threads asynchronously.
-    #         # Then the rendered video frames and the labels displayed here
-    #         # are not strictly synchronized.
-    #         while True:
-    #             result = result_queue.get()
-    #             labels_placeholder.table(result)
 
+    score_threshold = st.slider("Score threshold", 0.0, 1.0, 0.5, 0.05)
 
 # LLM Chat in the right column
 with col2:
@@ -336,9 +305,6 @@ with st.sidebar:
         st.success("Stream Status: Running")
     else:
         st.error("Stream Status: Stopped")
-    
-    if st.session_state.frame is not None:
-        st.write(f"Frame Size: {st.session_state.frame.shape[1]}x{st.session_state.frame.shape[0]}")
 
 # Clean up resources on script termination
 def cleanup():
