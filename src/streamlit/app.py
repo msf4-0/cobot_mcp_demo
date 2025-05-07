@@ -44,9 +44,6 @@ if "session_id" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "video_running" not in st.session_state:
-    st.session_state.video_running = False
-
 if "rtsp_url" not in st.session_state:
     st.session_state.rtsp_url = ""
 
@@ -292,24 +289,13 @@ with st.sidebar:
     
     # Add a button to start a new session
     if st.button("Start New Session"):
-        # Make sure to stop video if running
-        st.session_state.video_running = False
         # Reset chat session
         st.session_state.session_id = str(uuid.uuid4())
         st.session_state.messages = []
         st.rerun()
-    
-    # Add technical info
-    st.header("Technical Info")
-    if st.session_state.video_running:
-        st.success("Stream Status: Running")
-    else:
-        st.error("Stream Status: Stopped")
 
 # Clean up resources on script termination
 def cleanup():
-    if st.session_state.video_running:
-        st.session_state.video_running = False
     st.session_state.tts_engine.stop()
 
 # Register cleanup handler
