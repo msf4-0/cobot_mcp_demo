@@ -8,3 +8,4 @@ pymongo
 pyttsx3
 SpeechRecognition
 opencv-python
+ultralytics
