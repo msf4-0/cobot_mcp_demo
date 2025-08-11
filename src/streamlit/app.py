@@ -26,7 +26,7 @@ API_TOKEN = "n8n_llm_auth"  # Replace with your actual token
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent
-MODEL_LOCAL_PATH = ROOT / "./models/yolov8n.pt"
+MODEL_LOCAL_PATH = ROOT / "./models/shapes_detection/first_50_epoch/weights/best.pt"
 MONGO_URL = "mongodb://localhost:27017/"
 MM_PER_PIXEL_X = 0.4 # Based on original_position = (245.7, 27.5, 313)
 MM_PER_PIXEL_Y = 0.4 # Based on original_position = (245.7, 27.5, 313)
@@ -146,7 +146,7 @@ def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
 
                 label = f'{class_name} {box.conf[0]:.2f}|X:{offset_x_mm:.1f}mm Y:{offset_y_mm:.1f}mm'
                 cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 2)
-                cv2.line(frame, (image_center_x, image_center_y), (x_center, y_center), (255, 255, 0), 2)
+                # cv2.line(frame, (image_center_x, image_center_y), (x_center, y_center), (255, 255, 0), 2)
                 
                 # Update database 
                 latest_obj.insert_one({"label": str(class_name), "offset_x_mm": offset_x_mm, "offset_y_mm": offset_y_mm})

@@ -27,6 +27,10 @@ import threading
 from xarm import version
 from xarm.wrapper import XArmAPI
 
+# Coordinates of scan position
+SCAN_X = 200
+SCAN_Y = 0
+SCAN_Z = 300
 
 class RobotMain(object):
     """Robot Main Class"""
@@ -120,24 +124,21 @@ class RobotMain(object):
     # Move in a square
     def move_square(self):
         try:
-            self._tcp_speed = 500
+            self._tcp_speed = 100
             self._arm.move_gohome()
-            code = self._arm.set_tool_position(*[0.0, 100.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_tool_position(*[0.0, 100.0, 0.0, 0.0, 0.0, 45.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
-            code = self._arm.set_tool_position(*[100.0, 0.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_tool_position(*[70.71, -70.71, 0.0, 0.0, 0.0, -45.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
-            code = self._arm.set_tool_position(*[0.0, -200.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_tool_position(*[0.0, -100.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
             code = self._arm.set_tool_position(*[-100.0, 0.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
-            code = self._arm.set_tool_position(*[0.0, 100.0, 0.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
-            if not self._check_code(code, 'set_position'):
-                return
-            time.sleep(3)
+            time.sleep(0.1)
             self._arm.move_gohome()
         except Exception as e:
             self.pprint('MainException: {}'.format(e))
@@ -150,11 +151,6 @@ class RobotMain(object):
     # Move in a circle
     def move_circle(self):
         try:
-            # self._arm.move_gohome()
-            ''' Code below just spins the cobot around '''
-            # code = self._arm.set_servo_angle(angle=[360.0, 0.0, 0.0, 0.0, 0.0, 0.0], speed=self._angle_speed, mvacc=self._angle_acc, wait=True, radius=360.0)
-            # if not self._check_code(code, 'set_servo_angle'):
-            #     return
             ''' Code below moves the cobot to a new position and draws a small circle '''
             code = self._arm.set_position(*[200.0, 0.0, 200.0, 180.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, radius=0.0, wait=False)
             # if not self._check_code(code, 'set_position'):
@@ -173,10 +169,12 @@ class RobotMain(object):
     
     # Move to scan position
     def move_to_scan(self):
+        global SCAN_X,SCAN_Y,SCAN_Z
         try:
             self._arm.move_gohome()
             # code = self._arm.set_tool_position(*[245.7, 27.5, 313, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
-            code = self._arm.set_tool_position(*[200.0, 0.0, -313.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            # code = self._arm.set_tool_position(*[200.0, 0.0, -313.0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_position(*[SCAN_X,SCAN_Y,SCAN_Z,180,0,0], speed=self._tcp_speed, mvacc=self._tcp_acc, radius=0, wait=True)
             if not self._check_code(code, 'set_position'):
                 return
         except Exception as e:
@@ -201,19 +199,23 @@ class RobotMain(object):
         if hasattr(self._arm, 'release_count_changed_callback'):
             self._arm.release_count_changed_callback(self._count_changed_callback)
 
-    def pickup_n_place(self, x, y, z, min_z=10, step_size=20, check_interval=0.1):
+    def pickup_n_place(self, x, y, z, min_z=10, step_size=20, check_interval=0.1, offset_x=80, offset_y=0, offset_z=0):
         """Slowly moves the cobot down while suction cup on to pickup object. 
         Then places object in specified coord.
         x, y, z: The coordinate to place the object
         min_z: Minimum height to maintain, cobot can't go below this
         step_size: Step size to go down (mm)
         check_interval: Time between steps (s)
+        offset_x: Offset in X-axis to compensate for camera offset (mm)
+        offset_y: Offset in Y-axis to compensate for camera offset (mm)
+        offset_z: Offset in Z-axis to compensate for camera offset (mm)
         """
+        global SCAN_X,SCAN_Y,SCAN_Z
         init_x, init_y, init_z = self.get_cobot_position()
         print(f"Init position: {init_x}, {init_y}, {init_z}")
         try:
             # 1. Move forward to compensate for camera offset
-            code = self._arm.set_tool_position(*[10, 0, 0, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
+            code = self._arm.set_tool_position(*[offset_x, offset_y, offset_z, 0.0, 0.0, 0.0], speed=self._tcp_speed, mvacc=self._tcp_acc, wait=True)
             # 2. Move down in small steps while checking suction
             z_moved = 0
             reached_obj = 0
@@ -235,13 +237,18 @@ class RobotMain(object):
             code = self._arm.set_suction_cup(True, wait=True, delay_sec=0)
             time.sleep(1)
             # 4. Go to drop location
+            code = self._arm.set_position(x=x, y=y, z=80, roll=180, pitch=0, yaw=0, speed=25, wait=True) # Set z-coord to 80 first above xy drop coords
             code = self._arm.set_position(x=x, y=y, z=z, roll=180, pitch=0, yaw=0, speed=25, wait=True)
             time.sleep(0.5)
             # 5. Release object
             code = self._arm.set_suction_cup(False, wait=True, delay_sec=0)
             time.sleep(1)
             # 6. Return to initial position
-            code = self._arm.set_position(x=init_x, y=init_y, z=init_z, roll=180, pitch=0, yaw=0, speed=100, wait=True)
+            # code = self._arm.set_position(x=init_x, y=init_y, z=init_z, roll=180, pitch=0, yaw=0, speed=100, wait=True)
+            # OR 6. Return to scan position
+            code = self._arm.set_position(*[SCAN_X,SCAN_Y,SCAN_Z,180,0,0], speed=self._tcp_speed, mvacc=self._tcp_acc, radius=0, wait=True)
+            if not self._check_code(code, 'set_position'):
+                return
         except Exception as e:
             self.pprint('MainException: {}'.format(e))
 
@@ -259,7 +266,10 @@ class RobotMain(object):
 
 if __name__ == '__main__':
     RobotMain.pprint('xArm-Python-SDK Version:{}'.format(version.__version__))
-    arm = XArmAPI('192.168.0.153', baud_checkset=False)
+    arm = XArmAPI('192.168.1.224', baud_checkset=False)
     robot_main = RobotMain(arm)
-    robot_main.move_to_scan()
+    # robot_main._arm.move_gohome()
+    robot_main.move_square()
+    # robot_main.move_by_xyz(80, 0, 0)
+    # robot_main.pickup_n_place(x=148.1, y=181.9, z=30, min_z=-11, step_size=5, check_interval=0.01, offset_x=0)
     # robot_main.run()

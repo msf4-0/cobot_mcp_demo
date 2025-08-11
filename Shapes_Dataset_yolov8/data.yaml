@@ -1,0 +1,13 @@
+test: C:/Users/User/Documents/reuben_ws/cobot_agentic_ai/Shapes_Dataset_yolov8/test/images
+train: C:/Users/User/Documents/reuben_ws/cobot_agentic_ai/Shapes_Dataset_yolov8/train/images
+val: C:/Users/User/Documents/reuben_ws/cobot_agentic_ai/Shapes_Dataset_yolov8/valid/images
+
+nc: 3
+names: ['circle', 'square', 'triangle']
+
+roboflow:
+  workspace: reuben-if7ts
+  project: shapes-detection-fppqu
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/reuben-if7ts/shapes-detection-fppqu/dataset/5

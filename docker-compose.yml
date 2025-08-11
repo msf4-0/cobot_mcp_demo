@@ -29,7 +29,7 @@ services:
       - app-network
     environment:
       - MONGO_URI=mongodb://mongo:27017/objs_db
-      - XARMAPI_IP=192.168.0.153
+      - XARMAPI_IP=192.168.1.224
 
   mongo:
     image: mongodb/mongodb-community-server:5.0.22-ubuntu2004
