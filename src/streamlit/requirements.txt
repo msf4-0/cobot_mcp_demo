@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 streamlit
 streamlit_webrtc
 PyAudio
@@ -10,3 +11,16 @@ SpeechRecognition
 opencv-python
 ultralytics
 roboflow
+=======
+streamlit
+streamlit_webrtc
+PyAudio
+requests
+pandas
+numpy
+pymongo
+pyttsx3
+SpeechRecognition
+opencv-python
+ultralytics
+>>>>>>> 1cca01156db9b090441cb9d1da45247e1f79b34c
