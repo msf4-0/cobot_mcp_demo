@@ -23,4 +23,7 @@ pyttsx3
 SpeechRecognition
 opencv-python
 ultralytics
+<<<<<<< HEAD
 >>>>>>> 1cca01156db9b090441cb9d1da45247e1f79b34c
+=======
+>>>>>>> 1c48911ce836ba691a1cecd07bd44b5d9ecd504f
